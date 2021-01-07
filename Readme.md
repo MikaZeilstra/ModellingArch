@@ -1,7 +1,7 @@
-###Moddeling archearhodopsion
+### Moddeling archearhodopsion
 This is a project to model the photocycle of NovArch by fitting data to potential models. The program in this repository serves as a tool to automate this process.
 
-###Requirements
+### Requirements
 The tool is designed using Python 3.9
 
 The required packages are :
@@ -9,7 +9,7 @@ The required packages are :
 - sympy
 - scipy
 
-###Usage
+### Usage
 First The number of states and transitions is inserted into their respective variables. After that the matrix representing the model needs to be inserted at the M variable. The fluorescent states and transitions can be inserted at the FluorecentStatesAndTransitions variable. The light dependant transitions can be defined at its respective variable as well.
 
 When the model is inserted using the above method, The measurements need to be added.
