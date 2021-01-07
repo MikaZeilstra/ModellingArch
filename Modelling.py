@@ -5,16 +5,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 sp.init_printing(use_unicode=False, wrap_line=False)
 
-Manualinput = True
-
-#The index of the state from which the fluorecent transition comes and the index of the fluorecent transitions as tuples.
-FluorecentStatesAndTransitions = [(2,3),(2,4)]
-
-
 #Maximum number of tries to solve for the transitions until error, Interval in which the intialguess will be randomly chosen and which rates are considerd to be 0
 MaxTries = 50
 IntialGuessInterval = (0,100)
-ZeroEpsilon = 1e-4
+LowerBoundTransitionRates = 1e-4
 
 #Setup configuration for numerical integration Firststepsize is for accuracy at the start and maxstepsize influences the resolution
 SolutionInterval = (0,10)
@@ -28,74 +22,36 @@ PreRates = [10,10,10,1]
 #Fixed transition rates can be inserted here as transition-value tuples THEY NEED TO BE SORTED IN ASCENDING ORDER OF TRANSITION INDEX
 FixedK = []
 
-
 #Initiate the T symbol
 t = sp.symbols("t", positive=True,real=True)
 
-if Manualinput :
-    # Fill in the number of transitions and states
-    NumberOfTransitions = 7
-    NumberOfStates = 4
+# Fill in the number of transitions and states
+NumberOfTransitions = 7
+NumberOfStates = 4
 
-    #Fill in the light intensities, and the affected transitions
-    IntensityFractions = [0.95,0.75,0.5,0.25]
-    LightDependantTransitions = [0,2,5]
+# Initialize the symbols for the transitions, states and the time
+k = []
+for Kn in range(NumberOfTransitions):
+    k.append(sp.symbols("k" + str(Kn), positive=True, real=True))
 
-    #Fill in the K_totals corresponding to the given light intensities.
-    KTotals = [[-0.6958199483,-400],[-0.6062190023,-300],[-0.530258567,-200],[-0.447416794,-100]]
+# Setup matrix using the just created symbols
+M = sp.Matrix([[-k[0], k[2], 0, k[6]],
+               [k[0], -k[2] - k[1], k[3], 0],
+               [0, k[1], -k[3] - k[4], k[5]],
+               [0, 0, k[4], -k[5] - k[6]]])
 
-    #Initialize the symbols for the transitions, states and the time
-    k = []
-    for Kn in range(NumberOfTransitions):
-        k.append(sp.symbols("k" + str(Kn), positive=True,real=True))
+# The index of the state from which the fluorecent transition comes and the index of the fluorecent transitions as tuples.
+FluorecentStatesAndTransitions = [(2, 3), (2, 4)]
 
+#The Light dependant transitions
+LightDependantTransitions = [0,2,5]
 
-
-    #Setup matrix using the just created symbols
-    M = sp.Matrix([[-k[0] ,   k[2],0,k[6]],
-                    [k[0]   ,-k[2]-k[1],k[3],0],
-                    [0,k[1],-k[3]-k[4],k[5]],
-                    [0,0,k[4],-k[5]-k[6]]])
-
+#The Intensities at which the measurments were made
+IntensityFractions = [0.95,0.75,0.5,0.25]
 
 
-
-#A lot of The manual features are not in the CLI version
-else:
-    raise NotImplementedError()
-    # NumberOfStates = int(input("Enter the number of states:"))
-    #
-    # # Initialize matrix
-    # InputMatrix = []
-    # print("Enter the entries of the transition matrix rowwise:")
-    #
-    # # For user input
-    # for i in range(NumberOfStates):  # A for loop for row entries
-    #     a = []
-    #     for j in range(NumberOfStates):  # A for loop for column entries
-    #         a.append(input())
-    #     InputMatrix.append(a)
-    #
-    # # For printing the matrix
-    # #print(InputMatrix)
-    #
-    # #Convert matrix to sympy
-    # M = sp.Matrix(sp.sympify(InputMatrix))
-    # k = list(M.free_symbols)
-    # print(k)
-    #
-    # if(len(k) != NumberOfTransitions):
-    #     raise RuntimeError("Too many symbols in matrix for number of transitions")
-    # #M = sp.Matrix(M)
-    #
-    # # Fill in the known lambdas and number of transitions
-    # NumberOfLambdas = int(input("Enter the number of lambdas:"))
-    #
-    # print("Enter the lamdas:")
-    # KnownLambda = []
-    # for j in range(NumberOfLambdas):  # A for loop for column entries
-    #     KnownLambda.append(int(input()))
-    # print(KnownLambda)
+#Fill in the K_totals corresponding to the given light intensities.
+KTotals = [[-0.6958199483,-400],[-0.6062190023,-300],[-0.530258567,-200],[-0.447416794,-100]]
 
 
 
@@ -144,7 +100,7 @@ if (not UsePredeterminedRates):
 
     #Try and find a solution with new random starting points 10 times. a solution is reject if the bounds are active (active_mask) this means the solution is either on or lower than th given lower bound
     while (((not(all([x == 0 for x in Rates['active_mask']]))) or (not Rates["success"])) and (Tries < MaxTries)):
-        Rates = opt.least_squares(lambda num : list(map(lambda x: x(num), NonlinearSystem)), np.random.rand((NumberOfUnkownTransitions))*(IntialGuessInterval[1]-IntialGuessInterval[0])+IntialGuessInterval[0],bounds=(ZeroEpsilon,np.inf))
+        Rates = opt.least_squares(lambda num : list(map(lambda x: x(num), NonlinearSystem)), np.random.rand((NumberOfUnkownTransitions)) * (IntialGuessInterval[1]-IntialGuessInterval[0]) + IntialGuessInterval[0], bounds=(LowerBoundTransitionRates, np.inf))
         Tries += 1
 
     #Print the solution if found otherwise error
