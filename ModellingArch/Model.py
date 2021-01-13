@@ -116,20 +116,30 @@ class Model:
         # Setup list of the transition rates
         self.TransitionRates = dict(zip(UnkownK, Rates['x'])) | FixedTransitions
 
+        print("Transitions : " + str(self.TransitionRates))
         return self.TransitionRates
 
     '''
     Solves the differential system of equations for the population of each state as a function of time and shows the results
-    :param SolutionInterval
+    :param SolutionInterval: the time interval for which the solution is calculated in a tuple, defaults to (0,10)
+    :type SolutionInterval: tuple[float,float]
+    :param FirstStepSize : The size of the first step when solving the differential equations, defaults to 1e-4
+    :type FirstStepSize : float
+    :param MaxStepSize : The maximum step that will be taken during the calculation of the solution, defaults to 1e-1
+    :param MaxStepSize : float  
     '''
-    def find_population(self,SolutionInterval =(0,10),FirstStepSize=1e-4, MaxStepSize =1e-1):
+    def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1):
+        if InitialCondition is None:
+            InitialCondition = [1] + [0] * (self.NumberOfStates - 1)
+
+
         ODEs = self.M.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
 
         # Convert the system to a function for use by scypy
         ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs)(ti, *y)))
 
         # solve the system
-        solution = inte.solve_ivp(ODESystem, SolutionInterval, [1, 0, 0], first_step=FirstStepSize,
+        solution = inte.solve_ivp(ODESystem, SolutionInterval, InitialCondition, first_step=FirstStepSize,
                                   max_step=MaxStepSize, method="Radau")
 
 
@@ -141,7 +151,7 @@ class Model:
         # Plot the fluorecence as the population which transitions from S1 with Rate k1 for all the given fluorecent transitions
         for fluorecence in self.FluorescentTransitions:
             plt.plot(solution["t"], solution["y"][fluorecence[0]] * self.TransitionRates[fluorecence[1]],
-                     label="Fluorecense Transition " + str(fluorecence[1].name))
+                     label="Fluorescence Transition " + str(fluorecence[1].name))
         plt.legend()
         plt.show()
 

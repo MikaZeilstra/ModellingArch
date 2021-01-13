@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="ModdelingArch-MikaZ", # Replace with your own username
-    version="0.0.2",
+    name="ModellingArch", # Replace with your own username
+    version="0.0.1",
     author="MikaZ",
     author_email="M.J.Zeilstra@student.tudelft.nl",
     description="An package for moddeling the photocycle of arch",
