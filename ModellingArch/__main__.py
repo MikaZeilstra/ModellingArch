@@ -2,6 +2,7 @@ import argparse
 import ast
 import sympy as sp
 import numpy as np
+import json
 from ModellingArch.Model import Model
 
 parser = argparse.ArgumentParser(
@@ -30,27 +31,48 @@ parser.add_argument("-Si","-SolutionInterval", dest="Si", required=False, help="
 parser.add_argument("-Ip","-InitialPopulation", dest="Ip", required=False, help="A list containing the initial populations of the system", default="None")
 parser.add_argument("-Fs","-FirstStepSize", dest="Fs", required=False, help="The size of the first step taken while numerically solving the system the next step will be dynamically determined", default="1e-4")
 parser.add_argument("-Ms","-MaxStepSize", dest="Ms", required=False, help="The maximum stepsize that will be taken to calculate the populations determines the resolution of the solution", default="1e-1")
+
+#Loading And Saving
+parser.add_argument("-In","-InputFilePath",dest="In", required=False, help="The path of the json file containing the model to load")
+parser.add_argument("-Out","-OutputFilePath",dest="Out", required=False, help="The path of the json file which will contain the model generated")
+parser.add_argument("-SkipCalculateTransitions", dest="Ct", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the transitions")
+parser.add_argument("-SkipCalculatePopulations", dest="Pt", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the populations")
+
 args = parser.parse_args()
 
 #Check if the model is given using the command line or a file
-if (not(args.M is None or args.LightIntensities is None or args.Data is None or args.Lt is None or args.Ft is None)):
+if (not(args.M is None or args.Lt is None or args.Ft is None)):
     M = sp.Matrix(sp.sympify(args.M))
 
     k = sorted(list(M.free_symbols), key=lambda x : x.name)
 
-    LightIntensities = ast.literal_eval(args.Li)
-    LightData = ast.literal_eval(args.Data)
-
     Ldt = sp.sympify(args.Lt)
     Ft = sp.sympify(args.Ft)
+
+    model = Model(M, Ldt, Ft)
+#If not given in the command like check if an inputfile was given and load it
+elif not args.In is None:
+    with open(args.In,'r') as In:
+        model = Model.fromJSON(In.read().replace('\n', ''))
+
+#else Throw an error since we dont have a (Full) Model
+else:
+    raise IOError("Please input all of MATRIX ,FT ,LT , LI and DATA, Or give IN")
+
+#Check if all data is filled in and extract it
+if not (args.Li is None or args.Data is None ):
+    LightIntensities = ast.literal_eval(args.Li)
+    LightData = ast.literal_eval(args.Data)
 
     Data = None
     if len(LightData) != len(LightIntensities):
         raise Exception("Length of LightIntensities and Data must be the same")
     else:
-        Data = dict(zip(LightIntensities,np.array(LightData) * -1))
-else:
-    raise IOError("Please input all of MATRIX ,FT ,LT , LI and DATA, Or give INPUTFILE")
+        Data = dict(zip(LightIntensities, np.array(LightData) * -1))
+
+#If there was no data but we need to calculate transitions throw an error
+elif args.Ct:
+    raise RuntimeError("DATA and LT flag is required if transitions need to be calculated")
 
 #Import the fixed transitions
 FixedT = dict(sp.sympify(args.FixedT))
@@ -67,6 +89,14 @@ FirstStep = ast.literal_eval(args.Fs)
 MaxStep = ast.literal_eval(args.Ms)
 
 #Run the model
-model = Model(M,Ldt,Ft)
-model.calculate_transitions(data=Data,FixedTransitions=FixedT, InitialGuessInterval=InitialGuess,LowerBoundTransitionRates=LowerBound, MaxTries=MaxTries)
-model.find_population(SolutionInterval=SolutionInterval,InitialCondition=InitialValue,FirstStepSize=FirstStep,MaxStepSize=MaxStep)
+if args.Ct:
+    model.calculate_transitions(data=Data,FixedTransitions=FixedT, InitialGuessInterval=InitialGuess,LowerBoundTransitionRates=LowerBound, MaxTries=MaxTries)
+if args.Pt:
+    model.find_population(SolutionInterval=SolutionInterval,InitialCondition=InitialValue,FirstStepSize=FirstStep,MaxStepSize=MaxStep)
+
+#Plot the Solutions
+model.plotSolution()
+
+if not args.Out is None:
+    with open(args.Out, 'w') as out:
+        out.write(model.toJSON())

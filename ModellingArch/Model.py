@@ -3,23 +3,25 @@ import scipy.optimize as opt
 import scipy.integrate as inte
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+import copy
 
 
-class Model:
-    M = sp.Matrix
-    LightDependantTransitions = list[sp.Symbol]
-    FluorescentTransitions = list[tuple[sp.Symbol,int]]
+class Model():
+    M : sp.Matrix
+    LightDependantTransitions : list[sp.Symbol]
+    FluorescentTransitions : list[tuple[sp.Symbol,int]]
 
-    NumberOfStates = int
-    States = list[sp.Symbol]
+    NumberOfStates : int
+    States : list[sp.Symbol]
 
-    NumberOfTransitions = int
-    Transitions = list[sp.Symbol]
+    NumberOfTransitions : int
+    Transitions : list[sp.Symbol]
 
-    TransitionRates = dict[sp.Symbol : float]
+    TransitionRates : dict[sp.Symbol : float]
 
-    SolutionTimes = list[float]
-    Solution = list[list[float]]
+    SolutionTimes : list[float]
+    Solution : list[list[float]]
 
     '''
     Constructor for the model class
@@ -127,8 +129,13 @@ class Model:
     :type FirstStepSize : float
     :param MaxStepSize : The maximum step that will be taken during the calculation of the solution, defaults to 1e-1
     :param MaxStepSize : float  
+    :return : A tuple containing the times at which the population was calculated and the population of each state at that time in the second value.
+    :rtype : tuple[list[float],list[list[float]]
     '''
     def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1):
+        if not hasattr(self, "TransitionRates"):
+            raise RuntimeError("The Transition rates need to first be calculated or loaded in before calculating population")
+
         if InitialCondition is None:
             InitialCondition = [1] + [0] * (self.NumberOfStates - 1)
 
@@ -142,17 +149,67 @@ class Model:
         solution = inte.solve_ivp(ODESystem, SolutionInterval, InitialCondition, first_step=FirstStepSize,
                                   max_step=MaxStepSize, method="Radau")
 
+        self.SolutionTimes = solution["t"]
+        self.Solution = solution['y']
+        return (self.SolutionTimes, self.Solution)
 
-
+    '''
+    Plots the solution associated with the model
+    '''
+    def plotSolution(self):
+        if not hasattr(self, "Solution"):
+            raise RuntimeError("The solution needs first be calculted or loaded in before plotting solution")
         # Plot the results
-        for i in range(len(solution['y'])):
-            plt.plot(solution["t"], solution["y"][i], label="State " + self.States[i].name[1:])
+        for i in range(len(self.Solution)):
+            plt.plot(self.SolutionTimes, self.Solution[i], label="State " + self.States[i].name[1:])
 
         # Plot the fluorecence as the population which transitions from S1 with Rate k1 for all the given fluorecent transitions
         for fluorecence in self.FluorescentTransitions:
-            plt.plot(solution["t"], solution["y"][fluorecence[0]] * self.TransitionRates[fluorecence[1]],
+            plt.plot(self.SolutionTimes, self.Solution[fluorecence[0]] * self.TransitionRates[fluorecence[1]],
                      label="Fluorescence Transition " + str(fluorecence[1].name))
         plt.legend()
         plt.show()
+
+    '''
+    Converts the object to JSON
+    '''
+    def toJSON(self):
+        selfDict = copy.deepcopy(self.__dict__)
+        del selfDict['NumberOfTransitions']
+        del selfDict['NumberOfStates']
+        del selfDict['Transitions']
+        del selfDict['States']
+        selfDict['M'] = str(np.array(selfDict['M']).tolist())
+        selfDict['SolutionTimes'] = selfDict['SolutionTimes'].tolist()
+        selfDict['Solution'] = selfDict['Solution'].tolist()
+        selfDict['TransitionRates'] = {str(k):v for k,v in selfDict['TransitionRates'].items()}
+        return json.dumps(selfDict, indent=4,default=lambda x: str(x))
+
+    '''
+    Loads the object from JSON
+    '''
+    @staticmethod
+    def fromJSON(Json):
+        Dict = json.loads(Json)
+        print(Dict)
+        try:
+            M = sp.Matrix(sp.sympify(Dict['M']))
+            Ldt = sp.sympify(Dict['LightDependantTransitions'])
+            Ft = sp.sympify(Dict['FluorescentTransitions'])
+            self = Model(M, Ldt,Ft)
+        except KeyError:
+            raise IOError("Model Json should at least contain Model Matrix fluorescent transitions and Light dependant transitions")
+        try:
+            self.TransitionRates = sp.sympify(Dict["TransitionRates"])
+        except KeyError:
+            print("Could not find precalculated transition rates")
+
+        try:
+            self.Solution = np.array(Dict['Solution'])
+            self.SolutionTimes = np.array(Dict['SolutionTimes'])
+        except:
+            print("Could not find precalculated population solution")
+
+        return self
 
 
