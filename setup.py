@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ModellingArch", # Replace with your own username
-    version="0.0.1",
+    version="0.0.2",
     author="MikaZ",
     author_email="M.J.Zeilstra@student.tudelft.nl",
     description="An package for moddeling the photocycle of arch",
@@ -19,7 +19,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.9',
-    install_requires = [
+    install_requires = [ 
         'matplotlib==3.3.3',
         'sympy==1.7.1',
         'scipy==1.5.4'

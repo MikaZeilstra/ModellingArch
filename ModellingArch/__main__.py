@@ -12,31 +12,34 @@ parser = argparse.ArgumentParser(
 #Model
 parser.add_argument('-Matrix',dest="M", required=False, help ="The square matrix describing the markov chain state diagram where each row will give the diffential equation for the population of that state")
 parser.add_argument('-Ft','-FluorescentTransitions',dest="Ft", required=False, help="A list containing the names of each fluorescent transition")
-parser.add_argument('-Lt','-LightDependentTransitions', dest="Lt",required=False, help="A list containing the names of each light dependent transition")
+parser.add_argument('-Lt','-LightDependentTransitions', dest="Lt",required=False, help="A list with for each type of light the transitions which are dependant on it in the same order as light intensities")
 
 #Data
-parser.add_argument('-Li','-LightIntensities',dest="Li", required=False, help="The light intensities the data was gathered at")
+parser.add_argument('-Li','-LightIntensities',dest="Li", required=False, help="A List containing for each type of light dependancy the intensity at which the measurments were taken")
 parser.add_argument('-Data', required=False, dest="Data",help= "A 2-dimensional list containing a set of measured apparent rates for each light intensity")
 
 #FixedTransitions
 parser.add_argument('-FixedT -FixedTransitions', required=False, dest="FixedT", help="A list of ordered pairs containing the name of the transition and its value for each fixed transition", default="[]")
 
 #Transition finding settings
-parser.add_argument("-Ig","-InitialGuessInterval", dest="Ig", required=False, help="A tuple containing the interval from which the initial guesses will be taken",default="(0,10)")
-parser.add_argument("-L","-TransitionsLowerBound", dest="Lb", required=False, help="A float which determines the lowest accepted transition rate" , default="10e-10")
-parser.add_argument("-Mt","-MaxTries", dest="Mt", required=False, help="An integer detemining how many times we want to try and find the transition rates if it has failed with current intial values", default="50")
+parser.add_argument("-Ig","-InitialGuessInterval", dest="Ig", required=False, help="A tuple containing the interval from which the initial guesses will be taken, default is (0,10)",default="(0,10)")
+parser.add_argument("-L","-TransitionsLowerBound", dest="Lb", required=False, help="A float which determines the lowest accepted transition rate, default is 1e-10" , default="1e-10")
+parser.add_argument("-Mt","-MaxTries", dest="Mt", required=False, help="An integer detemining how many times we want to try and find the transition rates if it has failed with current intial values, default is 50", default="50")
 
 #Solution finding settings
-parser.add_argument("-Si","-SolutionInterval", dest="Si", required=False, help="A tuple containing the interval for which the populations will be calculated, defaults to (0,10)",default="(0,10)")
-parser.add_argument("-Ip","-InitialPopulation", dest="Ip", required=False, help="A list containing the initial populations of the system", default="None")
-parser.add_argument("-Fs","-FirstStepSize", dest="Fs", required=False, help="The size of the first step taken while numerically solving the system the next step will be dynamically determined", default="1e-4")
-parser.add_argument("-Ms","-MaxStepSize", dest="Ms", required=False, help="The maximum stepsize that will be taken to calculate the populations determines the resolution of the solution", default="1e-1")
+parser.add_argument("-Si","-SolutionInterval", dest="Si", required=False, help="A tuple containing the interval for which the populations will be calculated, default is (0,10)",default="(0,10)")
+parser.add_argument("-Ip","-InitialPopulation", dest="Ip", required=False, help="A list containing the initial populations of the system, default is everything in ground state", default="None")
+parser.add_argument("-Fs","-FirstStepSize", dest="Fs", required=False, help="The size of the first step taken while numerically solving the system the next step will be dynamically determined, default is 1e-4", default="1e-4")
+parser.add_argument("-Ms","-MaxStepSize", dest="Ms", required=False, help="The maximum stepsize that will be taken to calculate the populations determines the resolution of the solution, default is 1e-1", default="1e-1")
 
 #Loading And Saving
 parser.add_argument("-In","-InputFilePath",dest="In", required=False, help="The path of the json file containing the model to load")
 parser.add_argument("-Out","-OutputFilePath",dest="Out", required=False, help="The path of the json file which will contain the model generated")
 parser.add_argument("-SkipCalculateTransitions", dest="Ct", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the transitions")
 parser.add_argument("-SkipCalculatePopulations", dest="Pt", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the populations")
+
+#Temporal Pattern
+parser.add_argument("-Tp", "-TemporalPattern", dest="Tp", required=False, help="A list with for each light type its temporal pattern default is all 1", default="[1,1]")
 
 args = parser.parse_args()
 
@@ -68,7 +71,7 @@ if not (args.Li is None or args.Data is None ):
     if len(LightData) != len(LightIntensities):
         raise Exception("Length of LightIntensities and Data must be the same")
     else:
-        Data = dict(zip(LightIntensities, np.array(LightData) * -1))
+        Data = dict(zip(map(tuple,LightIntensities), np.array(LightData) * -1))
 
 #If there was no data but we need to calculate transitions throw an error
 elif args.Ct:
@@ -88,11 +91,13 @@ InitialValue = ast.literal_eval(args.Ip)
 FirstStep = ast.literal_eval(args.Fs)
 MaxStep = ast.literal_eval(args.Ms)
 
+Tp = sp.sympify(args.Tp)
+
 #Run the model
 if args.Ct:
     model.calculate_transitions(data=Data,FixedTransitions=FixedT, InitialGuessInterval=InitialGuess,LowerBoundTransitionRates=LowerBound, MaxTries=MaxTries)
 if args.Pt:
-    model.find_population(SolutionInterval=SolutionInterval,InitialCondition=InitialValue,FirstStepSize=FirstStep,MaxStepSize=MaxStep)
+    model.find_population(SolutionInterval=SolutionInterval,InitialCondition=InitialValue,FirstStepSize=FirstStep,MaxStepSize=MaxStep,TemporalPattern=Tp)
 
 #Plot the Solutions
 model.plotSolution()

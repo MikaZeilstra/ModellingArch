@@ -9,7 +9,7 @@ import copy
 
 class Model():
     M : sp.Matrix
-    LightDependantTransitions : list[sp.Symbol]
+    LightDependantTransitions : list[list[sp.Symbol]]
     FluorescentTransitions : list[tuple[sp.Symbol,int]]
 
     NumberOfStates : int
@@ -59,7 +59,7 @@ class Model():
     :return: A dictionary containing the transitions as keys and their rates as values
     :rtype: dict[sp.symbol,float]
     '''
-    def calculate_transitions(self, data : dict[float, list[float]], FixedTransitions=None, InitialGuessInterval= (0,10),LowerBoundTransitionRates = 1e-10,MaxTries=50 ) -> dict[sp.Symbol,float]:
+    def calculate_transitions(self, data : dict[list[float], list[float]], FixedTransitions=None, InitialGuessInterval= (0,10),LowerBoundTransitionRates = 1e-10,MaxTries=50 ) -> dict[sp.Symbol,float]:
         if FixedTransitions is None:
             FixedTransitions = {}
 
@@ -72,7 +72,10 @@ class Model():
         # Substitute the lambdas for the known values and scale affected transition rates to the given value
         filledLambdas = []
         for Intensity in data.keys():
-            ExtraCPoly = cPoly.subs(zip(self.LightDependantTransitions, map(lambda x: Intensity * x, self.LightDependantTransitions)))
+            ExtraCPoly = copy.deepcopy(cPoly)
+            for i in range(len(Intensity)):
+                ExtraCPoly = ExtraCPoly.subs(zip(self.LightDependantTransitions[i], map(lambda x: Intensity[i] * x, self.LightDependantTransitions[i])))
+
             filledLambdas += list(map(lambda x: ExtraCPoly.subs(lam, x), data[Intensity]))
 
         # Store the actual symbol instead of reference in Fixed ks
@@ -132,15 +135,23 @@ class Model():
     :return : A tuple containing the times at which the population was calculated and the population of each state at that time in the second value.
     :rtype : tuple[list[float],list[list[float]]
     '''
-    def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1):
+    def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1, TemporalPattern=None):
         if not hasattr(self, "TransitionRates"):
             raise RuntimeError("The Transition rates need to first be calculated or loaded in before calculating population")
 
         if InitialCondition is None:
             InitialCondition = [1] + [0] * (self.NumberOfStates - 1)
 
+        if TemporalPattern is None:
+            TemporalPattern = [1] * len(self.LightDependantTransitions)
 
-        ODEs = self.M.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
+        CopyM = copy.deepcopy(self.M)
+
+        print(CopyM)
+        for Tp, Ts in (zip(TemporalPattern, self.LightDependantTransitions)):
+            CopyM = CopyM.subs(zip(Ts, map(lambda x : x*Tp ,Ts)))
+
+        ODEs = CopyM.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
 
         # Convert the system to a function for use by scypy
         ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs)(ti, *y)))
@@ -191,7 +202,6 @@ class Model():
     @staticmethod
     def fromJSON(Json):
         Dict = json.loads(Json)
-        print(Dict)
         try:
             M = sp.Matrix(sp.sympify(Dict['M']))
             Ldt = sp.sympify(Dict['LightDependantTransitions'])
