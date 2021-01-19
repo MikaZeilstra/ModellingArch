@@ -35,11 +35,12 @@ parser.add_argument("-Ms","-MaxStepSize", dest="Ms", required=False, help="The m
 #Loading And Saving
 parser.add_argument("-In","-InputFilePath",dest="In", required=False, help="The path of the json file containing the model to load")
 parser.add_argument("-Out","-OutputFilePath",dest="Out", required=False, help="The path of the json file which will contain the model generated")
+parser.add_argument("-DataIn", dest="DIn", required=False,help="Path to a JSON file containing Measurements data")
 parser.add_argument("-SkipCalculateTransitions", dest="Ct", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the transitions")
 parser.add_argument("-SkipCalculatePopulations", dest="Pt", required=False,action="store_false",default=True, help="Use this flag if we can skip calculating the populations")
 
 #Temporal Pattern
-parser.add_argument("-Tp", "-TemporalPattern", dest="Tp", required=False, help="A list with for each light type its temporal pattern default is all 1", default="[1,1]")
+parser.add_argument("-Tp", "-TemporalPattern", dest="Tp", required=False, help="A list with for each light type its temporal pattern as a sympy function default is all 1", default="[1,1]")
 
 args = parser.parse_args()
 
@@ -60,18 +61,22 @@ elif not args.In is None:
 
 #else Throw an error since we dont have a (Full) Model
 else:
-    raise IOError("Please input all of MATRIX ,FT ,LT , LI and DATA, Or give IN")
+    raise IOError("Please input all of MATRIX ,FT AND LT  Or give IN")
 
-#Check if all data is filled in and extract it
+#Check if all data is filled in and extract it or a file was given
 if not (args.Li is None or args.Data is None ):
     LightIntensities = ast.literal_eval(args.Li)
     LightData = ast.literal_eval(args.Data)
 
-    Data = None
     if len(LightData) != len(LightIntensities):
         raise Exception("Length of LightIntensities and Data must be the same")
     else:
         Data = dict(zip(map(tuple,LightIntensities), np.array(LightData) * -1))
+elif not (args.DIn is None):
+    with open(args.DIn,'r') as In:
+        DataFile = json.loads(In.read().replace('\n', ''))
+        print(DataFile)
+        Data = dict(zip(map(tuple, DataFile['LightIntensities']), np.array(DataFile['LightData']) * -1))
 
 #If there was no data but we need to calculate transitions throw an error
 elif args.Ct:
@@ -85,12 +90,13 @@ InitialGuess = ast.literal_eval(args.Ig)
 LowerBound = ast.literal_eval(args.Lb)
 MaxTries = ast.literal_eval(args.Mt)
 
-#Import the options for calculating the populations
+#Interpret the options for calculating the populations
 SolutionInterval = ast.literal_eval(args.Si)
 InitialValue = ast.literal_eval(args.Ip)
 FirstStep = ast.literal_eval(args.Fs)
 MaxStep = ast.literal_eval(args.Ms)
 
+#Interpret the temporal patterns
 Tp = sp.sympify(args.Tp)
 
 #Run the model
@@ -102,6 +108,7 @@ if args.Pt:
 #Plot the Solutions
 model.plotSolution()
 
+#Save the model
 if not args.Out is None:
     with open(args.Out, 'w') as out:
         out.write(model.toJSON())

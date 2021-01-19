@@ -7,7 +7,7 @@ import json
 import copy
 
 
-class Model():
+class Model:
     M : sp.Matrix
     LightDependantTransitions : list[list[sp.Symbol]]
     FluorescentTransitions : list[tuple[sp.Symbol,int]]
@@ -38,9 +38,11 @@ class Model():
         self.LightDependantTransitions = LightDependentTransitions
         self.FluorescentTransitions = FluorescentTransitions
 
+        #Deduce number of states and generate state symbols
         self.NumberOfStates = self.M.shape[0]
         self.States = list(map(lambda x :  sp.symbols("s" + str(x), positive=True, real=True), range(self.NumberOfStates)))
 
+        #Deduce number of transitions and their variables
         self.Transitions = list(self.M.free_symbols)
         self.NumberOfTransitions = len(self.Transitions)
 
@@ -136,21 +138,24 @@ class Model():
     :rtype : tuple[list[float],list[list[float]]
     '''
     def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1, TemporalPattern=None):
+        #Check if we have transition rates
         if not hasattr(self, "TransitionRates"):
             raise RuntimeError("The Transition rates need to first be calculated or loaded in before calculating population")
 
+        #Setup the default values for initial condition and Temporal pattern if not set
         if InitialCondition is None:
             InitialCondition = [1] + [0] * (self.NumberOfStates - 1)
 
         if TemporalPattern is None:
             TemporalPattern = [1] * len(self.LightDependantTransitions)
 
+        #Insert the temporal pattern into the matrix
         CopyM = copy.deepcopy(self.M)
-
         print(CopyM)
         for Tp, Ts in (zip(TemporalPattern, self.LightDependantTransitions)):
             CopyM = CopyM.subs(zip(Ts, map(lambda x : x*Tp ,Ts)))
 
+        #Setup the system of ODES
         ODEs = CopyM.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
 
         # Convert the system to a function for use by scypy
@@ -167,7 +172,7 @@ class Model():
     '''
     Plots the solution associated with the model
     '''
-    def plotSolution(self):
+    def plotSolution(self) -> None:
         if not hasattr(self, "Solution"):
             raise RuntimeError("The solution needs first be calculted or loaded in before plotting solution")
         # Plot the results
@@ -183,25 +188,36 @@ class Model():
 
     '''
     Converts the object to JSON
+    :return : A string containing the object asd json
+    :rtype : String
     '''
     def toJSON(self):
+        #Get a copy of this object as a dictionary
         selfDict = copy.deepcopy(self.__dict__)
+        #Delete entries that can easily be deduced back
         del selfDict['NumberOfTransitions']
         del selfDict['NumberOfStates']
         del selfDict['Transitions']
         del selfDict['States']
+        #Convert objects that dont have direct JSON versions
         selfDict['M'] = str(np.array(selfDict['M']).tolist())
         selfDict['SolutionTimes'] = selfDict['SolutionTimes'].tolist()
         selfDict['Solution'] = selfDict['Solution'].tolist()
         selfDict['TransitionRates'] = {str(k):v for k,v in selfDict['TransitionRates'].items()}
+        #Convert the dictionary to JSON
         return json.dumps(selfDict, indent=4,default=lambda x: str(x))
 
     '''
     Loads the object from JSON
+    :param Json : The json string containing the class
+    :type Json : String
+    :return : The model saved in the json string
+    :rtype : ModellingArch.Model
     '''
     @staticmethod
-    def fromJSON(Json):
+    def fromJSON(Json : str) -> 'Model':
         Dict = json.loads(Json)
+        #Try to load the basic model from the json if thats not possible thow an error
         try:
             M = sp.Matrix(sp.sympify(Dict['M']))
             Ldt = sp.sympify(Dict['LightDependantTransitions'])
@@ -209,6 +225,8 @@ class Model():
             self = Model(M, Ldt,Ft)
         except KeyError:
             raise IOError("Model Json should at least contain Model Matrix fluorescent transitions and Light dependant transitions")
+
+        #Try to load saved transition rates and/or solution and inform the user if not possible
         try:
             self.TransitionRates = sp.sympify(Dict["TransitionRates"])
         except KeyError:
