@@ -151,7 +151,6 @@ class Model:
 
         #Insert the temporal pattern into the matrix
         CopyM = copy.deepcopy(self.M)
-        print(CopyM)
         for Tp, Ts in (zip(TemporalPattern, self.LightDependantTransitions)):
             CopyM = CopyM.subs(zip(Ts, map(lambda x : x*Tp ,Ts)))
 
