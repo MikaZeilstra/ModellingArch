@@ -158,11 +158,11 @@ class Model:
         ODEs = CopyM.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
 
         # Convert the system to a function for use by scypy
-        ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs)(ti, *y)))
+        ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs,modules=['numpy', {"Heaviside" : lambda x : 0 if x < 0 else 1}])(ti, *y)))
 
         # solve the system
         solution = inte.solve_ivp(ODESystem, SolutionInterval, InitialCondition, first_step=FirstStepSize,
-                                  max_step=MaxStepSize, method="Radau")
+                                  max_step=MaxStepSize, method="LSODA")
 
         self.SolutionTimes = solution["t"]
         self.Solution = solution['y']

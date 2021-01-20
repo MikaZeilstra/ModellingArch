@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ModellingArch", # Replace with your own username
-    version="0.0.2",
+    version="0.0.5",
     author="MikaZ",
     author_email="M.J.Zeilstra@student.tudelft.nl",
-    description="An package for moddeling the photocycle of arch",
+    description="A package for modelling the photocycle of arch",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/MikaZeilstra/ModellingArch",

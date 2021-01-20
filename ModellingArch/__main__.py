@@ -57,7 +57,7 @@ if (not(args.M is None or args.Lt is None or args.Ft is None)):
 #If not given in the command like check if an inputfile was given and load it
 elif not args.In is None:
     with open(args.In,'r') as In:
-        model = Model.fromJSON(In.read().replace('\n', ''))
+        model = Model.fromJSON(In.read())
 
 #else Throw an error since we dont have a (Full) Model
 else:
@@ -74,8 +74,7 @@ if not (args.Li is None or args.Data is None ):
         Data = dict(zip(map(tuple,LightIntensities), np.array(LightData) * -1))
 elif not (args.DIn is None):
     with open(args.DIn,'r') as In:
-        DataFile = json.loads(In.read().replace('\n', ''))
-        print(DataFile)
+        DataFile = json.loads(In.read())
         Data = dict(zip(map(tuple, DataFile['LightIntensities']), np.array(DataFile['LightData']) * -1))
 
 #If there was no data but we need to calculate transitions throw an error
