@@ -10,7 +10,7 @@ import copy
 class Model:
     M : sp.Matrix
     LightDependantTransitions : list[list[sp.Symbol]]
-    FluorescentTransitions : list[tuple[sp.Symbol,int]]
+    FluorescentStates : list[tuple[int,int]]
 
     NumberOfStates : int
     States : list[sp.Symbol]
@@ -23,6 +23,10 @@ class Model:
     SolutionTimes : list[float]
     Solution : list[list[float]]
 
+    Fluorescence : list[list[float]]
+
+    LAMBDIFY_MODULES = ['numpy', {"Heaviside" : lambda x : 0 if x < 0 else 1, "round" : lambda x : round(x)}]
+
     '''
     Constructor for the model class
     :param Matrix : Matrix describing the state diagram of the continuous markov chain model containing free sympy variables for each transition
@@ -33,10 +37,10 @@ class Model:
     :type FluorescentTransitions : list[tuple[sp.Symbol,int]]
     '''
     #Override
-    def __init__(self, Matrix : sp.Matrix, LightDependentTransitions :list[sp.Symbol], FluorescentTransitions : list[tuple[sp.Symbol,int]]):
+    def __init__(self, Matrix : sp.Matrix, LightDependentTransitions :list[sp.Symbol], FluorescentStates : list[tuple[int,int]]):
         self.M = Matrix
         self.LightDependantTransitions = LightDependentTransitions
-        self.FluorescentTransitions = FluorescentTransitions
+        self.FluorescentStates = FluorescentStates
 
         #Deduce number of states and generate state symbols
         self.NumberOfStates = self.M.shape[0]
@@ -134,8 +138,8 @@ class Model:
     :type FirstStepSize : float
     :param MaxStepSize : The maximum step that will be taken during the calculation of the solution, defaults to 1e-1
     :param MaxStepSize : float  
-    :return : A tuple containing the times at which the population was calculated and the population of each state at that time in the second value.
-    :rtype : tuple[list[float],list[list[float]]
+    :return : A 4-tuple containing the times at which the population was calculated ,the population of each state at that time in the second value, the fluorescence as the third value, and the integrated fluorescene as the last value .
+    :rtype : tuple[list[float],list[list[float]],list[float],float]
     '''
     def find_population(self,SolutionInterval =(0,10), InitialCondition=None,FirstStepSize=1e-4, MaxStepSize =1e-1, TemporalPattern=None):
         #Check if we have transition rates
@@ -158,15 +162,28 @@ class Model:
         ODEs = CopyM.subs(self.TransitionRates.items()) * sp.Matrix(self.States)
 
         # Convert the system to a function for use by scypy
-        ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs,modules=['numpy', {"Heaviside" : lambda x : 0 if x < 0 else 1}])(ti, *y)))
+
+        ODESystem = lambda ti, y: list(map(lambda x: x[0], sp.lambdify([sp.Symbol("t")] + self.States, ODEs,modules=self.LAMBDIFY_MODULES)(ti, *y)))
 
         # solve the system
         solution = inte.solve_ivp(ODESystem, SolutionInterval, InitialCondition, first_step=FirstStepSize,
                                   max_step=MaxStepSize, method="LSODA")
 
+
+
         self.SolutionTimes = solution["t"]
         self.Solution = solution['y']
-        return (self.SolutionTimes, self.Solution)
+
+        #Generate the fluorescense for each desired state and light and save it
+        self.Fluorescence = []
+        for fluorescence in self.FluorescentStates:
+            self.Fluorescence.append(np.array(self.Solution[fluorescence[0]]) * np.array(list(map(sp.lambdify(sp.Symbol("t"),TemporalPattern[fluorescence[1]],modules=self.LAMBDIFY_MODULES),self.SolutionTimes))) )
+
+        self.FluorescenceArea = list(map(lambda x : np.sum(x[1::]*np.diff(self.SolutionTimes)), self.Fluorescence))
+
+        print("Total Fluorescence under curves : " + str(self.FluorescenceArea))
+
+        return (self.SolutionTimes, self.Solution,self.Fluorescence , self.FluorescenceArea)
 
     '''
     Plots the solution associated with the model
@@ -179,9 +196,8 @@ class Model:
             plt.plot(self.SolutionTimes, self.Solution[i], label="State " + self.States[i].name[1:])
 
         # Plot the fluorecence as the population which transitions from S1 with Rate k1 for all the given fluorecent transitions
-        for fluorecence in self.FluorescentTransitions:
-            plt.plot(self.SolutionTimes, self.Solution[fluorecence[0]] * self.TransitionRates[fluorecence[1]],
-                     label="Fluorescence Transition " + str(fluorecence[1].name))
+        for i in range(len(self.Fluorescence)):
+            plt.plot(self.SolutionTimes, self.Fluorescence[i], label="Fluorescencence State " + self.States[i].name[1:])
         plt.legend()
         plt.show()
 
@@ -220,10 +236,10 @@ class Model:
         try:
             M = sp.Matrix(sp.sympify(Dict['M']))
             Ldt = sp.sympify(Dict['LightDependantTransitions'])
-            Ft = sp.sympify(Dict['FluorescentTransitions'])
-            self = Model(M, Ldt,Ft)
+            Fs = sp.sympify(Dict['FluorescentStates'])
+            self = Model(M, Ldt,Fs)
         except KeyError:
-            raise IOError("Model Json should at least contain Model Matrix fluorescent transitions and Light dependant transitions")
+            raise IOError("Model Json should at least contain Model Matrix fluorescent states and Light dependant transitions")
 
         #Try to load saved transition rates and/or solution and inform the user if not possible
         try:

@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(
                                  allow_abbrev=False)
 #Model
 parser.add_argument('-Matrix',dest="M", required=False, help ="The square matrix describing the markov chain state diagram where each row will give the diffential equation for the population of that state")
-parser.add_argument('-Ft','-FluorescentTransitions',dest="Ft", required=False, help="A list containing the names of each fluorescent transition")
+parser.add_argument('-Fs','-FluorescentState',dest="Fs", required=False, help="A list containing tuples with a fluorescent state as the first value and the identifier for the type of light which it depends on")
 parser.add_argument('-Lt','-LightDependentTransitions', dest="Lt",required=False, help="A list with for each type of light the transitions which are dependant on it in the same order as light intensities")
 
 #Data
@@ -19,7 +19,7 @@ parser.add_argument('-Li','-LightIntensities',dest="Li", required=False, help="A
 parser.add_argument('-Data', required=False, dest="Data",help= "A 2-dimensional list containing a set of measured apparent rates for each light intensity")
 
 #FixedTransitions
-parser.add_argument('-FixedT -FixedTransitions', required=False, dest="FixedT", help="A list of ordered pairs containing the name of the transition and its value for each fixed transition", default="[]")
+parser.add_argument('-Ft -FixedTransitions', required=False, dest="Ft", help="A list of ordered pairs containing the name of the transition and its value for each fixed transition", default="[]")
 
 #Transition finding settings
 parser.add_argument("-Ig","-InitialGuessInterval", dest="Ig", required=False, help="A tuple containing the interval from which the initial guesses will be taken, default is (0,10)",default="(0,10)")
@@ -29,7 +29,7 @@ parser.add_argument("-Mt","-MaxTries", dest="Mt", required=False, help="An integ
 #Solution finding settings
 parser.add_argument("-Si","-SolutionInterval", dest="Si", required=False, help="A tuple containing the interval for which the populations will be calculated, default is (0,10)",default="(0,10)")
 parser.add_argument("-Ip","-InitialPopulation", dest="Ip", required=False, help="A list containing the initial populations of the system, default is everything in ground state", default="None")
-parser.add_argument("-Fs","-FirstStepSize", dest="Fs", required=False, help="The size of the first step taken while numerically solving the system the next step will be dynamically determined, default is 1e-4", default="1e-4")
+parser.add_argument("-Fss","-FirstStepSize", dest="Fss", required=False, help="The size of the first step taken while numerically solving the system the next step will be dynamically determined, default is 1e-4", default="1e-4")
 parser.add_argument("-Ms","-MaxStepSize", dest="Ms", required=False, help="The maximum stepsize that will be taken to calculate the populations determines the resolution of the solution, default is 1e-1", default="1e-1")
 
 #Loading And Saving
@@ -45,15 +45,15 @@ parser.add_argument("-Tp", "-TemporalPattern", dest="Tp", required=False, help="
 args = parser.parse_args()
 
 #Check if the model is given using the command line or a file
-if (not(args.M is None or args.Lt is None or args.Ft is None)):
+if (not(args.M is None or args.Lt is None or args.Fs is None)):
     M = sp.Matrix(sp.sympify(args.M))
 
     k = sorted(list(M.free_symbols), key=lambda x : x.name)
 
     Ldt = sp.sympify(args.Lt)
-    Ft = sp.sympify(args.Ft)
+    Fs = sp.sympify(args.Fs)
 
-    model = Model(M, Ldt, Ft)
+    model = Model(M, Ldt, Fs)
 #If not given in the command like check if an inputfile was given and load it
 elif not args.In is None:
     with open(args.In,'r') as In:
@@ -61,7 +61,7 @@ elif not args.In is None:
 
 #else Throw an error since we dont have a (Full) Model
 else:
-    raise IOError("Please input all of MATRIX ,FT AND LT  Or give IN")
+    raise IOError("Please input all of MATRIX ,FS AND LT  Or give IN")
 
 #Check if all data is filled in and extract it or a file was given
 if not (args.Li is None or args.Data is None ):
@@ -82,7 +82,7 @@ elif args.Ct:
     raise RuntimeError("DATA and LT flag is required if transitions need to be calculated")
 
 #Import the fixed transitions
-FixedT = dict(sp.sympify(args.FixedT))
+FixedT = dict(sp.sympify(args.Ft))
 
 #Import the options for the calculating of transitions
 InitialGuess = ast.literal_eval(args.Ig)
@@ -92,7 +92,7 @@ MaxTries = ast.literal_eval(args.Mt)
 #Interpret the options for calculating the populations
 SolutionInterval = ast.literal_eval(args.Si)
 InitialValue = ast.literal_eval(args.Ip)
-FirstStep = ast.literal_eval(args.Fs)
+FirstStep = ast.literal_eval(args.Fss)
 MaxStep = ast.literal_eval(args.Ms)
 
 #Interpret the temporal patterns
