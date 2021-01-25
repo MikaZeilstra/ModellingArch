@@ -197,7 +197,7 @@ class Model:
 
         # Plot the fluorecence as the population which transitions from S1 with Rate k1 for all the given fluorecent transitions
         for i in range(len(self.FluorescentStates)):
-            plt.plot(self.SolutionTimes, self.Fluorescence[i], label="Fluorescence State " + self.FluorescentStates[i][0])
+            plt.plot(self.SolutionTimes, self.Fluorescence[i], label="Fluorescence State " + str(self.FluorescentStates[i][0])  )
         plt.legend()
         plt.show()
 
