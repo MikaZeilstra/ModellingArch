@@ -9,7 +9,7 @@ import copy
 
 class Model:
     M : sp.Matrix
-    LightDependantTransitions : list[list[sp.Symbol]]
+    LightDependentTransitions : list[list[sp.Symbol]]
     FluorescentStates : list[tuple[int,int]]
 
     NumberOfStates : int
@@ -39,7 +39,7 @@ class Model:
     #Override
     def __init__(self, Matrix : sp.Matrix, LightDependentTransitions :list[sp.Symbol], FluorescentStates : list[tuple[int,int]]):
         self.M = Matrix
-        self.LightDependantTransitions = LightDependentTransitions
+        self.LightDependentTransitions = LightDependentTransitions
         self.FluorescentStates = FluorescentStates
 
         #Deduce number of states and generate state symbols
@@ -80,7 +80,7 @@ class Model:
         for Intensity in data.keys():
             ExtraCPoly = copy.deepcopy(cPoly)
             for i in range(len(Intensity)):
-                ExtraCPoly = ExtraCPoly.subs(zip(self.LightDependantTransitions[i], map(lambda x: Intensity[i] * x, self.LightDependantTransitions[i])))
+                ExtraCPoly = ExtraCPoly.subs(zip(self.LightDependentTransitions[i], map(lambda x: Intensity[i] * x, self.LightDependentTransitions[i])))
 
             filledLambdas += list(map(lambda x: ExtraCPoly.subs(lam, x), data[Intensity]))
 
@@ -151,11 +151,11 @@ class Model:
             InitialCondition = [1] + [0] * (self.NumberOfStates - 1)
 
         if TemporalPattern is None:
-            TemporalPattern = [1] * len(self.LightDependantTransitions)
+            TemporalPattern = [1] * len(self.LightDependentTransitions)
 
         #Insert the temporal pattern into the matrix
         CopyM = copy.deepcopy(self.M)
-        for Tp, Ts in (zip(TemporalPattern, self.LightDependantTransitions)):
+        for Tp, Ts in (zip(TemporalPattern, self.LightDependentTransitions)):
             CopyM = CopyM.subs(zip(Ts, map(lambda x : x*Tp ,Ts)))
 
         #Setup the system of ODES
@@ -196,8 +196,8 @@ class Model:
             plt.plot(self.SolutionTimes, self.Solution[i], label="State " + self.States[i].name[1:])
 
         # Plot the fluorecence as the population which transitions from S1 with Rate k1 for all the given fluorecent transitions
-        for i in range(len(self.Fluorescence)):
-            plt.plot(self.SolutionTimes, self.Fluorescence[i], label="Fluorescencence State " + self.States[i].name[1:])
+        for i in range(len(self.FluorescentStates)):
+            plt.plot(self.SolutionTimes, self.Fluorescence[i], label="Fluorescence State " + self.FluorescentStates[i][0])
         plt.legend()
         plt.show()
 
@@ -235,11 +235,11 @@ class Model:
         #Try to load the basic model from the json if thats not possible thow an error
         try:
             M = sp.Matrix(sp.sympify(Dict['M']))
-            Ldt = sp.sympify(Dict['LightDependantTransitions'])
+            Ldt = sp.sympify(Dict['LightDependentTransitions'])
             Fs = sp.sympify(Dict['FluorescentStates'])
             self = Model(M, Ldt,Fs)
         except KeyError:
-            raise IOError("Model Json should at least contain Model Matrix fluorescent states and Light dependant transitions")
+            raise IOError("Model Json should at least contain Model Matrix fluorescent states and Light dependent transitions")
 
         #Try to load saved transition rates and/or solution and inform the user if not possible
         try:

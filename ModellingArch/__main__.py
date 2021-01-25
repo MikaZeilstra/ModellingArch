@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(
 #Model
 parser.add_argument('-Matrix',dest="M", required=False, help ="The square matrix describing the markov chain state diagram where each row will give the diffential equation for the population of that state")
 parser.add_argument('-Fs','-FluorescentState',dest="Fs", required=False, help="A list containing tuples with a fluorescent state as the first value and the identifier for the type of light which it depends on")
-parser.add_argument('-Lt','-LightDependentTransitions', dest="Lt",required=False, help="A list with for each type of light the transitions which are dependant on it in the same order as light intensities")
+parser.add_argument('-Lt','-LightDependentTransitions', dest="Lt",required=False, help="A list with for each type of light the transitions which are dependent on it in the same order as light intensities")
 
 #Data
 parser.add_argument('-Li','-LightIntensities',dest="Li", required=False, help="A List containing for each type of light dependancy the intensity at which the measurments were taken")
