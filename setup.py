@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ModellingArch",
-    version="0.0.6",
+    version="0.0.8",
     author="MikaZ",
     author_email="M.J.Zeilstra@student.tudelft.nl",
     description="A package for modelling the photocycle of arch",
